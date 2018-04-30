@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				color: #000;
+				font-family:Monospace;
+				font-size:13px;
+				text-align:center;
+				font-weight: bold;
+				background-color: #fff;
+				margin: 0px;
+				overflow: hidden;
+			}
+			#info {
+				color:#000;
+				position: absolute;
+				top: 0px; width: 100%;
+				padding: 5px;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="container"></div>
+		<div id="info">
+
+		</div>
+
+		<script src="/Libraries/three.js"></script>
+		<script src="/Libraries/OrbitControls.js"></script>
+		<script src="/Libraries/Detector.js"></script>
+		<script src="/Libraries/dat.gui.min.js"></script>
+		<script src="/Libraries/threex.dilategeometry.js"></script>
+		<script src="/Libraries/threex.atmospherematerial.js"></script>
+		<script src="/Libraries/threex.geometricglowmesh.js"></script>
+		<script src="/Libraries/threex.atmospherematerialdatgui.js"></script>
+
+
+		<script>
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+			var controls, scene, renderer;
+			var solarCam,mercuryCam, venusCam, earthCam, marsCam, jupiterCam, saturnCam, uranusCam, neptuneCam;
+			var clock;
+			var sun, mercury, venus, earth, mars, jupiter, saturn, rings, uranus, neptune; // 1. Creating outerspace through the dome option: added the variable "space"
+			var mercTextPlane, venusTextPlane, earthTextPlane, marsTextPlane, jupTextPlane, satTextPlane, urTextPlane, neptTextPlane;
+			var startScene, startCam, startLight;
+			var previousTextPlane, previousCamObject;
+			var previousCam = 'Solar View';
+
+			// Radii
+			var mercuryOrbitRadius = 75.34/2;
+			var venusOrbitRadius = 80.37/2;
+			var earthOrbitRadius = 84.51/2;
+			var marsOrbitRadius = 92.34/2;
+			var jupiterOrbitRadius = 147.38/2;
+			var saturnOrbitRadius = 212.25/2;
+			var uranusOrbitRadius = 356.65/2;
+			var neptuneOrbitRadius = 519.26/2;
+
+
+			var camControls = new function() {
+					this.camera = "Solar View";
+			}
+			var gui = new dat.GUI();
+			gui.add(camControls, 'camera',['Solar View','Mercury','Venus','Earth','Mars','Jupiter','Saturn','Uranus','Neptune']);
+
+			init();
+			animate();
+
+			function init() {
+				// initStartScreen();
+				initScene();
+				initRenderer();
+				initSolarCam();
+				initControls();
+				initPlanetCams();
+				initPlanets();
+				initPlanetPaths();
+				initPlanetInfo();
+				initStarField();
+				initLights();
+
+				var container = document.getElementById( 'container' );
+				container.appendChild( renderer.domElement );
+				window.addEventListener( 'resize', onWindowResize, false );
+			}
+
+			// function initStartScreen(){
+			// 	startScene = new THREE.Scene();
+			// 	startCam = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 1000 );
+			// 	startCam.position.y = -50;
+			// 	// var light = new THREE.AmbientLight( 0xffffff );
+			// 	// startScene.add( light );
+			//
+			// 	startLight = new THREE.DirectionalLight( 0xffffff );
+			// 	startLight.position.set( 50,0,0 );
+			// 	startLight.intensity = 0;
+			// 	startScene.add( startLight );
+			//
+			// 	var sun = createPlanetMesh("../sun.jpg",new THREE.SphereGeometry(69.55/10, 40, 40));
+			// 	sun.position.set(0,0,0);
+			// 	// sun.add(createSunGlow()); //need to expand the glow
+			// 	startScene.add(sun);
+			//
+			// 	startCam.lookAt(new THREE.Vector3(0,0,0));
+			// }
+
+			function initPlanetInfo() {
+				mercTextPlane = createPlanetInfoBox('Mercury.png');
+				venusTextPlane = createPlanetInfoBox('Venus.png');
+				earthTextPlane = createPlanetInfoBox('Earth.png');
+				marsTextPlane = createPlanetInfoBox('Mars.png');
+				jupTextPlane = createPlanetInfoBox('Jupiter.png');
+				satTextPlane = createPlanetInfoBox('Saturn.png');
+				urTextPlane = createPlanetInfoBox('Uranus.png');
+				neptTextPlane = createPlanetInfoBox('Neptune.png');
+			}
+
+			function createPlanetInfoBox(image) {
+				var geometry = new THREE.PlaneGeometry(0.714,1,32);
+				var texture	= THREE.ImageUtils.loadTexture('/Planet Data/' + image);
+				var material = new THREE.MeshBasicMaterial( { map: texture} );
+				planetTextPlane = new THREE.Mesh(geometry, material);
+				return planetTextPlane;
+			}
+
+			function initPlanets(){
+				sun = createPlanetMesh("/PlanetTextures/sun.jpg",new THREE.SphereGeometry(69.55/4, 40, 40));
+				sun.position.set(0,0,0);
+				sun.add(createSunGlow()); //need to expand the glow
+				scene.add(sun);
+
+				mercury = createPlanetMesh("/PlanetTextures/mercury.jpg",new THREE.SphereGeometry(.24*2, 40, 40));
+				scene.add(mercury);
+				venus = createPlanetMesh("/PlanetTextures/venus.jpg",new THREE.SphereGeometry(.61*2, 40, 40));
+				scene.add(venus);
+				earth = createPlanetMesh("/PlanetTextures/earth.png",new THREE.SphereGeometry(.64*2, 40, 40));
+				scene.add(earth);
+				mars = createPlanetMesh("/PlanetTextures/mars.jpg",new THREE.SphereGeometry(.34*2, 40, 40));
+				scene.add(mars);
+				jupiter = createPlanetMesh("/PlanetTextures/jupiter.jpg",new THREE.SphereGeometry(6.99, 40, 40));
+				scene.add(jupiter);
+				saturn = createPlanetMesh("/PlanetTextures/saturn.jpg",new THREE.SphereGeometry(5.82, 40, 40));
+				scene.add(saturn);
+       	rings = createRings(new THREE.CylinderGeometry(13.82, 13.82, .1, 100));
+		    scene.add(rings);
+				uranus = createPlanetMesh("/PlanetTextures/uranus.jpg",new THREE.SphereGeometry(2.54, 40, 40));
+				scene.add(uranus);
+				neptune = createPlanetMesh("/PlanetTextures/neptune.jpg",new THREE.SphereGeometry(2.46, 40, 40));
+				scene.add(neptune);
+			}
+
+			function initStarField(){
+				var star_geometry = new THREE.SphereGeometry(0.25, 8, 6);
+				var star_material = new THREE.MeshBasicMaterial( { color: 0xffffe6, flatShading: true } );
+
+				for ( var i = 0; i < 5000; i ++ ) {
+				  var mesh = new THREE.Mesh(star_geometry, star_material);
+					mesh.position.x = ( Math.random() - 0.5 ) * 1000;
+					mesh.position.y = ( Math.random() - 0.5 ) * 1000;
+					mesh.position.z = ( Math.random() - 0.5 ) * 1000;
+					mesh.updateMatrix();
+					mesh.matrixAutoUpdate = false;
+					scene.add( mesh );
+				}
+			}
+
+			function initPlanetPaths() {
+				scene.add(createPlanetPath(mercuryOrbitRadius));
+				scene.add(createPlanetPath(venusOrbitRadius));
+				scene.add(createPlanetPath(earthOrbitRadius));
+				scene.add(createPlanetPath(marsOrbitRadius));
+				scene.add(createPlanetPath(jupiterOrbitRadius));
+				scene.add(createPlanetPath(saturnOrbitRadius));
+				scene.add(createPlanetPath(uranusOrbitRadius));
+				scene.add(createPlanetPath(neptuneOrbitRadius));
+			}
+
+			function createPlanetPath(radius) {
+				var material = new THREE.LineBasicMaterial( { color: 0xffffff } );
+				var pathGeo = new THREE.CircleGeometry(radius,100);
+				pathGeo.vertices.shift();
+				var path = new THREE.Line(pathGeo, material);
+				path.rotation.x = Math.PI/2;
+				return path;
+			}
+
+			function initLights() {
+				// lights
+				var light = new THREE.AmbientLight( 0xffffff );
+				scene.add( light );
+			}
+
+			function createPlanetMesh(path, geom) {
+				var planetTexture = THREE.ImageUtils.loadTexture(path);
+				var planetMaterial = new THREE.MeshPhongMaterial();
+				planetMaterial.map = planetTexture;
+				// create a multimaterial
+				var mesh = THREE.SceneUtils.createMultiMaterialObject(geom, [planetMaterial]);
+				return mesh;
+			}
+
+			function createSunGlow() {
+				var spriteMaterial = new THREE.SpriteMaterial( {
+					map: new THREE.ImageUtils.loadTexture('/PlanetTextures/glow.png'),
+					useScreenCoordinates: false,
+					color: 0xff8300,
+					depthWrite: false,
+					transparent: false,
+					blending: THREE.AdditiveBlending
+				})
+				var sprite = new THREE.Sprite(spriteMaterial);
+				sprite.scale.set(100,100,1);
+				return sprite;
+	}
+
+			function createRings(geom) {
+					var ringsTexture = THREE.ImageUtils.loadTexture("/PlanetTextures/saturn rings.jpg");
+					ringsTexture.wrapS = THREE.RepeatWrapping;
+					ringsTexture.repeat.set( 1, 1 );
+					var ringsMaterial = new THREE.MeshPhongMaterial();
+					ringsMaterial.map = ringsTexture;
+					// create a multimaterial
+					var mesh = THREE.SceneUtils.createMultiMaterialObject(geom, [ringsMaterial]);
+					ringsTexture.material = THREE.DoubleSide;
+					return mesh;
+
+			}
+
+			function initRenderer(){
+				renderer = new THREE.WebGLRenderer();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+
+			function initScene(){
+				scene = new THREE.Scene();
+				scene.background = new THREE.Color( 0x2859a8 );
+				// scene.fog = new THREE.FogExp2( 0xcccccc, 0.002 );
+			}
+
+			function initSolarCam() {
+				solarCam = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 1000 );
+				solarCam.position.x = -10;
+        solarCam.position.y = 15;
+        solarCam.position.z = 100;
+        solarCam.lookAt(new THREE.Vector3(0, 0, 0));
+				previousCamObject = solarCam
+			}
+
+			function initPlanetCams() {
+				mercuryCam = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 1000 );
+				scene.add(mercuryCam);
+				venusCam = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 1000 );
+				scene.add(venusCam);
+				earthCam = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 1000 );
+				scene.add(earthCam);
+				marsCam = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 1000 );
+				scene.add(marsCam);
+				jupiterCam = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 1000 );
+				scene.add(jupiterCam);
+				saturnCam = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 1000 );
+				scene.add(saturnCam);
+				uranusCam = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 1000 );
+				scene.add(uranusCam);
+				neptuneCam = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 1000 );
+				scene.add(neptuneCam);
+			}
+
+			function initControls(){
+				controls = new THREE.OrbitControls( solarCam, renderer.domElement );
+				controls.enableZoom = false;
+
+				controls.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
+				controls.dampingFactor = 0.25;
+
+				controls.panningMode = THREE.HorizontalPanning; // default is THREE.ScreenSpacePanning
+
+				controls.minDistance = 10;
+				controls.maxDistance = 500;
+				controls.maxPolarAngle = Math.PI / 2;
+
+				clock = new THREE.Clock();
+				clock.start;
+			}
+			// Sound Player V1.
+			// Sound looping.
+			myAudio = new Audio('/Music/SoundTrack01.mp3');
+			if (typeof myAudio.loop == 'boolean')
+			{
+					myAudio.loop = true;
+			}
+			else
+			{
+					myAudio.addEventListener('ended', function() {
+							this.currentTime = 0;
+							this.play();
+					}, false);
+			}
+			myAudio.play();
+
+			function onWindowResize() {
+				solarCam.aspect = window.innerWidth / window.innerHeight;
+				solarCam.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+
+			var currentPlane;
+			function animate() {
+				requestAnimationFrame( animate );
+				controls.update();
+
+				var delta = clock.getDelta();
+				controls.update(delta);
+				elapsedTime = clock.getElapsedTime();
+
+				// if(elapsedTime > 5){
+					// Mercury
+					mercury.position.x = Math.sin( Date.now() * 0.000047 ) * mercuryOrbitRadius;
+					mercury.position.z = Math.cos( Date.now() * 0.000047 ) * mercuryOrbitRadius;
+					mercury.rotateY(0.002);
+					// Venus
+					venus.position.x = Math.sin( Date.now() * 0.000035 ) * venusOrbitRadius;
+					venus.position.z = Math.cos( Date.now() * 0.000035 ) * venusOrbitRadius;
+					venus.rotateY(0.002);
+					// Earth
+					earth.position.x = Math.sin( Date.now() * 0.000029 ) * earthOrbitRadius;
+					earth.position.z = Math.cos( Date.now() * 0.000029 ) * earthOrbitRadius;
+					earth.rotateY(0.002);
+					// Mars
+					mars.position.x = Math.sin( Date.now() * 0.000024 ) * marsOrbitRadius;
+					mars.position.z = Math.cos( Date.now() * 0.000024 ) * marsOrbitRadius;
+					mars.rotateY(0.002);
+					// Jupiter
+					jupiter.position.x = Math.sin( Date.now() * 0.000013 ) * jupiterOrbitRadius;
+					jupiter.position.z = Math.cos( Date.now() * 0.000013 ) * jupiterOrbitRadius;
+					jupiter.rotateY(0.002);
+					// Saturn
+					saturn.position.x = Math.sin( Date.now() * 0.00009 ) * saturnOrbitRadius;
+					saturn.position.z = Math.cos( Date.now() * 0.00009 ) * saturnOrbitRadius;
+					saturn.rotateY(0.002);
+					//Rings
+					rings.position.x = Math.sin( Date.now() * 0.00009 ) * saturnOrbitRadius;
+			    rings.position.z = Math.cos( Date.now() * 0.00009 ) * saturnOrbitRadius;
+					rings.rotation.x = Math.PI/(-30) ;
+	       	rings.rotation.z = Math.PI/(10) ;
+					// Uranus
+					uranus.position.x = Math.sin( Date.now() * 0.00006 ) * uranusOrbitRadius;
+					uranus.position.z = Math.cos( Date.now() * 0.00006 ) * uranusOrbitRadius;
+					uranus.rotateY(0.002);
+					// Neptune
+					neptune.position.x = Math.sin( Date.now() * 0.00005 ) * neptuneOrbitRadius;
+					neptune.position.z = Math.cos( Date.now() * 0.00005 ) * neptuneOrbitRadius;
+					neptune.rotateY(0.002);
+
+					removePlanes(previousCam, previousTextPlane, previousCamObject);
+					switch(camControls.camera){
+						case 'Solar View':
+							renderer.render( scene, solarCam );
+							break;
+						case 'Mercury':
+							mercuryCam.position.x = Math.sin( Date.now() * 0.000047 ) * (mercuryOrbitRadius+1.5);
+							mercuryCam.position.z = Math.cos( Date.now() * 0.000047 ) * (mercuryOrbitRadius+1.5);
+							mercuryCam.lookAt(new THREE.Vector3(mercury.position.x, mercury.position.y,mercury.position.z));
+							addCam(mercuryCam, mercTextPlane, 1.25,0,-1.5);
+							previousTextPlane = mercTextPlane;
+							previousCamObject = mercuryCam;
+							renderer.render(scene, mercuryCam);
+							break;
+						case 'Venus':
+							venusCam.position.x = Math.sin( Date.now() * 0.000035 ) * (venusOrbitRadius+4);
+							venusCam.position.z = Math.cos( Date.now() * 0.000035 ) * (venusOrbitRadius+4);
+							venusCam.lookAt(new THREE.Vector3(venus.position.x, venus.position.y, venus.position.z));
+
+							addCam(venusCam, venusTextPlane, 1.25,0,-1.5);
+							previousTextPlane = venusTextPlane;
+							previousCamObject = venusCam;
+
+							renderer.render(scene, venusCam);
+							break;
+						case 'Earth':
+							earthCam.position.x = Math.sin( Date.now() * 0.000029 ) * (earthOrbitRadius+4);
+							earthCam.position.z = Math.cos( Date.now() * 0.000029 ) * (earthOrbitRadius+4);
+							earthCam.lookAt(new THREE.Vector3(earth.position.x, earth.position.y,earth.position.z));
+
+							addCam(earthCam, earthTextPlane, 1.25,0,-1.5);
+							previousTextPlane = earthTextPlane;
+							previousCamObject = earthCam;
+
+							renderer.render(scene, earthCam);
+							break;
+						case 'Mars':
+							marsCam.position.x = Math.sin( Date.now() * 0.000024 ) * (marsOrbitRadius+2.5);
+							marsCam.position.z = Math.cos( Date.now() * 0.000024 ) * (marsOrbitRadius+2.5);
+							marsCam.lookAt(new THREE.Vector3(mars.position.x, mars.position.y,mars.position.z));
+
+							addCam(marsCam, marsTextPlane, 1.25,0,-1.5);
+							previousTextPlane = marsTextPlane;
+							previousCamObject = marsCam;
+
+							renderer.render(scene, marsCam);
+							break;
+						case 'Jupiter':
+							jupiterCam.position.x = Math.sin( Date.now() * 0.000013 ) * (jupiterOrbitRadius+20);
+							jupiterCam.position.z = Math.cos( Date.now() * 0.000013 ) * (jupiterOrbitRadius+20);
+							jupiterCam.lookAt(new THREE.Vector3(jupiter.position.x, jupiter.position.y,jupiter.position.z));
+
+							addCam(jupiterCam, jupTextPlane, 1.25,0,-1.5);
+							previousTextPlane = jupTextPlane;
+							previousCamObject = jupiterCam;
+
+							renderer.render(scene, jupiterCam);
+							break;
+						case 'Saturn':
+							saturnCam.position.x = Math.sin( Date.now() * 0.00009 ) * (saturnOrbitRadius+25);
+							saturnCam.position.z = Math.cos( Date.now() * 0.00009 ) * (saturnOrbitRadius+25);
+							saturnCam.lookAt(new THREE.Vector3(saturn.position.x, saturn.position.y,saturn.position.z));
+
+							addCam(saturnCam, satTextPlane, 1.25,0,-1.5);
+							previousTextPlane = satTextPlane;
+							previousCamObject = saturnCam;
+
+							renderer.render(scene, saturnCam);
+							break;
+						case 'Uranus':
+							uranusCam.position.x = Math.sin( Date.now() * 0.00006 ) * (uranusOrbitRadius+8);
+							uranusCam.position.z = Math.cos( Date.now() * 0.00006 ) * (uranusOrbitRadius+8);
+							uranusCam.lookAt(new THREE.Vector3(uranus.position.x, uranus.position.y,uranus.position.z));
+
+							addCam(uranusCam, urTextPlane, 1.25,0,-1.5);
+							previousTextPlane = urTextPlane;
+							previousCamObject = uranusCam;
+
+							renderer.render(scene, uranusCam);
+							break;
+						case 'Neptune':
+							neptuneCam.position.x = Math.sin( Date.now() * 0.00005 ) * (neptuneOrbitRadius+8);
+							neptuneCam.position.z = Math.cos( Date.now() * 0.00005 ) * (neptuneOrbitRadius+8);
+							neptuneCam.lookAt(new THREE.Vector3(neptune.position.x, neptune.position.y, neptune.position.z));
+
+							addCam(neptuneCam, neptTextPlane, 1.25,0,-1.5);
+							previousTextPlane = neptTextPlane;
+							previousCamObject = neptuneCam;
+
+							renderer.render(scene, neptuneCam);
+							break;
+					}
+					previousCam = camControls.camera;
+				// } else {
+				// 	startLight.intensity = elapsedTime/5;
+				// 	console.log(startLight.intensity);
+				// 	renderer.render(startScene, startCam);
+				// }
+			}
+
+			function addCam(cam, textPlane, x,y,z) {
+				cam.add( textPlane );
+				textPlane.position.set(x,y,z);
+			}
+
+			function removePlanes (previousCam, previousTextPlane, previousCamObject) {
+				if(previousCam != camControls.camera){
+					previousCamObject.remove(previousTextPlane);
+				}
+			}
+
+
+		</script>
+
+	</body>
+</html>
